@@ -34,7 +34,7 @@
         </div>
         <div class="col-xs-12 col-sm-12 col-md-12">
             <div class="form-group">
-                <strong>Permission:</strong>
+                <strong>Permissions:</strong>
                 <br/>
                 @foreach($permissions as $value)
                     <label><input type="checkbox" name="permission[{{$value->id}}]" value="{{$value->id}}" class="name">

@@ -7,17 +7,25 @@ use App\Http\Controllers\Controller;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use App\Models\SaUser;
 use Spatie\Permission\Models\Role;
-use Illuminate\Support\Facades\DB;
+use Spatie\Permission\Models\Permission;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Arr;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Routing\Controller as BaseController;
 
 class SaUserController extends BaseController
 {
-
     use ValidatesRequests;
+
+    function __construct()
+    {
+        $this->middleware('permission:user-list|user-create|user-edit|user-delete', ['only' => ['index']]);
+        $this->middleware('permission:user-show', ['only' => ['show']]);
+        $this->middleware('permission:user-create', ['only' => ['create', 'store']]);
+        $this->middleware('permission:user-edit', ['only' => ['edit', 'update']]);
+        $this->middleware('permission:user-delete', ['only' => ['destroy']]);
+    }
+
     /**
      * Display a listing of the resource.
      *
@@ -27,7 +35,7 @@ class SaUserController extends BaseController
     {
         $data = SaUser::latest()->paginate(5);
 
-        return view('users.index',compact('data'))
+        return view('users.index', compact('data'))
             ->with('i', ($request->input('page', 1) - 1) * 5);
     }
 
@@ -38,9 +46,9 @@ class SaUserController extends BaseController
      */
     public function create(): View
     {
-        $roles = Role::pluck('name','name')->all();
-
-        return view('users.create',compact('roles'));
+        $roles = Role::pluck('name', 'name')->all();
+        $permissions = Permission::get();
+        return view('users.create', compact('roles', 'permissions'));
     }
 
     /**
@@ -55,17 +63,32 @@ class SaUserController extends BaseController
             'name' => 'required',
             'email' => 'required|email|unique:sa_users,email',
             'password' => 'required|same:confirm-password',
-            'roles' => 'required'
+            'roles' => 'nullable',
+            'permissions' => 'nullable',
         ]);
 
         $input = $request->all();
         $input['password'] = Hash::make($input['password']);
 
+        $permissionsID = [];
+        if ($request->input('permissions')) {
+            $permissionsID = array_map(
+                function ($value) {
+                    return (int)$value;
+                },
+                $request->input('permissions')
+            );
+        }
+
+        $permissions = Permission::whereIn('id', $permissionsID)->pluck('name')->toArray();
         $user = SaUser::create($input);
         $user->assignRole($request->input('roles'));
+        if ($permissions) {
+            $user->givePermissionTo($permissions);
+        }
 
         return redirect()->route('users.index')
-                        ->with('success','User created successfully');
+            ->with('success', 'User created successfully');
     }
 
     /**
@@ -77,8 +100,8 @@ class SaUserController extends BaseController
     public function show($id): View
     {
         $user = SaUser::find($id);
-
-        return view('users.show',compact('user'));
+        $directPermissions = $user->permissions;
+        return view('users.show', compact('user', 'directPermissions'));
     }
 
     /**
@@ -87,13 +110,14 @@ class SaUserController extends BaseController
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function edit($id): View
-    {
-        $user = SaUser::find($id);
-        $roles = Role::pluck('name','name')->all();
-        $userRole = $user->roles->pluck('name','name')->all();
 
-        return view('users.edit',compact('user','roles','userRole'));
+    public function edit($id)
+    {
+        $user = SaUser::findOrFail($id);
+        $roles = Role::pluck('name', 'name'); // or custom id => label
+        $permissions = Permission::all();
+
+        return view('users.edit', compact('user', 'roles', 'permissions'));
     }
 
     /**
@@ -103,30 +127,40 @@ class SaUserController extends BaseController
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
+
     public function update(Request $request, $id): RedirectResponse
     {
         $this->validate($request, [
             'name' => 'required',
-            'email' => 'required|email|unique:sa_users,email,'.$id,
-            'password' => 'same:confirm-password',
-            'roles' => 'required'
+            'email' => 'required|email|unique:sa_users,email,' . $id,
+            'password' => 'nullable|same:confirm-password',
+            'roles' => 'nullable',
+            'permissions' => 'nullable',
         ]);
 
+        $user = SaUser::findOrFail($id);
+
         $input = $request->all();
-        if(!empty($input['password'])){
+
+        // Only hash password if provided
+        if (!empty($input['password'])) {
             $input['password'] = Hash::make($input['password']);
-        }else{
-            $input = Arr::except($input,array('password'));
+        } else {
+            unset($input['password']);
         }
 
-        $user = SaUser::find($id);
         $user->update($input);
-        DB::table('sa_model_has_sa_roles')->where('model_id',$id)->delete();
 
-        $user->assignRole($request->input('roles'));
+        // Remove existing roles and permissions
+        $user->syncRoles($request->input('roles', []));
+
+        $permissionsID = $request->input('permissions') ? array_map('intval', $request->input('permissions')) : [];
+
+        $permissions = Permission::whereIn('id', $permissionsID)->pluck('name')->toArray();
+        $user->syncPermissions($permissions);
 
         return redirect()->route('users.index')
-                        ->with('success','User updated successfully');
+            ->with('success', 'User updated successfully');
     }
 
     /**
@@ -139,6 +173,6 @@ class SaUserController extends BaseController
     {
         SaUser::find($id)->delete();
         return redirect()->route('users.index')
-                        ->with('success','User deleted successfully');
+            ->with('success', 'User deleted successfully');
     }
 }

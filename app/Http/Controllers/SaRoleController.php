@@ -23,10 +23,11 @@ class SaRoleController extends BaseController
      */
     function __construct()
     {
-         $this->middleware('permission:role-list|role-create|role-edit|role-delete', ['only' => ['index','store']]);
-         $this->middleware('permission:role-create', ['only' => ['create','store']]);
-         $this->middleware('permission:role-edit', ['only' => ['edit','update']]);
-         $this->middleware('permission:role-delete', ['only' => ['destroy']]);
+        $this->middleware('permission:role-list|role-create|role-edit|role-delete', ['only' => ['index']]);
+        $this->middleware('permission:role-show', ['only' => ['show']]);
+        $this->middleware('permission:role-create', ['only' => ['create', 'store']]);
+        $this->middleware('permission:role-edit', ['only' => ['edit', 'update']]);
+        $this->middleware('permission:role-delete', ['only' => ['destroy']]);
     }
 
     /**
@@ -36,8 +37,8 @@ class SaRoleController extends BaseController
      */
     public function index(Request $request): View
     {
-        $roles = Role::orderBy('id','DESC')->paginate(5);
-        return view('roles.index',compact('roles'))
+        $roles = Role::orderBy('id', 'DESC')->paginate(5);
+        return view('roles.index', compact('roles'))
             ->with('i', ($request->input('page', 1) - 1) * 5);
     }
 
@@ -49,7 +50,7 @@ class SaRoleController extends BaseController
     public function create(): View
     {
         $permissions = Permission::get();
-        return view('roles.create',compact('permissions'));
+        return view('roles.create', compact('permissions'));
     }
 
     /**
@@ -66,7 +67,9 @@ class SaRoleController extends BaseController
         ]);
 
         $permissionsID = array_map(
-            function($value) { return (int)$value; },
+            function ($value) {
+                return (int)$value;
+            },
             $request->input('permission')
         );
 
@@ -74,7 +77,7 @@ class SaRoleController extends BaseController
         $role->syncPermissions($permissionsID);
 
         return redirect()->route('roles.index')
-                        ->with('success','Role created successfully');
+            ->with('success', 'Role created successfully');
     }
     /**
      * Display the specified resource.
@@ -85,11 +88,11 @@ class SaRoleController extends BaseController
     public function show($id): View
     {
         $role = Role::find($id);
-        $rolePermissions = Permission::join("sa_role_has_sa_permissions","sa_role_has_sa_permissions.sa_permission_id","=","sa_permissions.id")
-            ->where("sa_role_has_sa_permissions.sa_role_id",$id)
+        $rolePermissions = Permission::join("sa_role_has_sa_permissions", "sa_role_has_sa_permissions.sa_permission_id", "=", "sa_permissions.id")
+            ->where("sa_role_has_sa_permissions.sa_role_id", $id)
             ->get();
 
-        return view('roles.show',compact('role','rolePermissions'));
+        return view('roles.show', compact('role', 'rolePermissions'));
     }
 
     /**
@@ -101,12 +104,11 @@ class SaRoleController extends BaseController
     public function edit($id): View
     {
         $role = Role::find($id);
-        $permission = Permission::get();
-        $rolePermissions = DB::table("sa_role_has_sa_permissions")->where("sa_role_has_sa_permissions.sa_role_id",$id)
-            ->pluck('sa_role_has_sa_permissions.sa_permission_id','sa_role_has_sa_permissions.sa_permission_id')
+        $permissions = Permission::get();
+        $rolePermissions = DB::table("sa_role_has_sa_permissions")->where("sa_role_has_sa_permissions.sa_role_id", $id)
+            ->pluck('sa_role_has_sa_permissions.sa_permission_id', 'sa_role_has_sa_permissions.sa_permission_id')
             ->all();
-
-        return view('roles.edit',compact('role','permission','rolePermissions'));
+        return view('roles.edit', compact('role', 'permissions', 'rolePermissions'));
     }
 
     /**
@@ -128,14 +130,16 @@ class SaRoleController extends BaseController
         $role->save();
 
         $permissionsID = array_map(
-            function($value) { return (int)$value; },
+            function ($value) {
+                return (int)$value;
+            },
             $request->input('permission')
         );
 
         $role->syncPermissions($permissionsID);
 
         return redirect()->route('roles.index')
-                        ->with('success','Role updated successfully');
+            ->with('success', 'Role updated successfully');
     }
     /**
      * Remove the specified resource from storage.
@@ -145,8 +149,8 @@ class SaRoleController extends BaseController
      */
     public function destroy($id): RedirectResponse
     {
-        DB::table("sa_roles")->where('id',$id)->delete();
+        DB::table("sa_roles")->where('id', $id)->delete();
         return redirect()->route('roles.index')
-                        ->with('success','Role deleted successfully');
+            ->with('success', 'Role deleted successfully');
     }
 }

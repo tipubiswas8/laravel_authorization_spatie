@@ -15,16 +15,16 @@
 <div class="row">
     <div class="col-xs-12 col-sm-12 col-md-12">
         <div class="form-group">
-            <strong>Name:</strong>
+            <strong>Permission Name:</strong>
             {{ $permission->name }}
         </div>
     </div>
     <div class="col-xs-12 col-sm-12 col-md-12">
         <div class="form-group">
-            <strong>Permissions:</strong>
-            @if(!empty($permissionPermissions))
-                @foreach($permissionPermissions as $v)
-                    <label class="label label-success">{{ $v->name }},</label>
+            <strong>Roles:</strong>
+            @if(!empty($permissionRoles))
+                @foreach($permissionRoles as $role)
+                    <label style="background-color: gray" class="label label-success">{{ $role->name }},</label>
                 @endforeach
             @endif
         </div>

@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
-use Spatie\Permission\Models\Role;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
@@ -20,7 +19,6 @@ class SaAuthController extends Controller
     {
         return View('login');
     }
-
 
     public function login(Request $request)
     {

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Foundation\Validation\ValidatesRequests;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +15,7 @@ use Illuminate\Routing\Controller as BaseController;
 class SaPermissionController extends BaseController
 {
     use AuthorizesRequests;
+    use ValidatesRequests;
     /**
      * Display a listing of the resource.
      *
@@ -21,10 +23,11 @@ class SaPermissionController extends BaseController
      */
     function __construct()
     {
-         $this->middleware('permission:permission-list|permission-create|permission-edit|permission-delete', ['only' => ['index','store']]);
-         $this->middleware('permission:permission-create', ['only' => ['create','store']]);
-         $this->middleware('permission:permission-edit', ['only' => ['edit','update']]);
-         $this->middleware('permission:permission-delete', ['only' => ['destroy']]);
+        $this->middleware('permission:permission-list|permission-create|permission-edit|permission-delete', ['only' => ['index']]);
+        $this->middleware('permission:permission-show', ['only' => ['show']]);
+        $this->middleware('permission:permission-create', ['only' => ['create', 'store']]);
+        $this->middleware('permission:permission-edit', ['only' => ['edit', 'update']]);
+        $this->middleware('permission:permission-delete', ['only' => ['destroy']]);
     }
 
     /**
@@ -34,8 +37,8 @@ class SaPermissionController extends BaseController
      */
     public function index(Request $request): View
     {
-        $permissions = Permission::orderBy('id','DESC')->paginate(5);
-        return view('permissions.index',compact('permissions'))
+        $permissions = Permission::orderBy('id', 'DESC')->paginate(5);
+        return view('permissions.index', compact('permissions'))
             ->with('i', ($request->input('page', 1) - 1) * 5);
     }
 
@@ -47,7 +50,7 @@ class SaPermissionController extends BaseController
     public function create(): View
     {
         $roles = Role::get();
-        return view('permissions.create',compact('roles'));
+        return view('permissions.create', compact('roles'));
     }
 
     /**
@@ -59,20 +62,22 @@ class SaPermissionController extends BaseController
     public function store(Request $request): RedirectResponse
     {
         $this->validate($request, [
-            'name' => 'required|unique:permissions,name',
-            'permission' => 'required',
+            'name' => 'required|unique:sa_permissions,name',
+            'role' => 'required',
         ]);
 
-        $permissionsID = array_map(
-            function($value) { return (int)$value; },
-            $request->input('permission')
+        $rolesId = array_map(
+            function ($value) {
+                return (int)$value;
+            },
+            $request->input('role')
         );
 
         $permission = Permission::create(['name' => $request->input('name')]);
-        $permission->syncPermissions($permissionsID);
+        $permission->syncRoles($rolesId);
 
         return redirect()->route('permissions.index')
-                        ->with('success','Permission created successfully');
+            ->with('success', 'Permission created successfully');
     }
     /**
      * Display the specified resource.
@@ -83,11 +88,11 @@ class SaPermissionController extends BaseController
     public function show($id): View
     {
         $permission = Permission::find($id);
-        $rolePermissions = Permission::join("role_has_permissions","role_has_permissions.permission_id","=","permissions.id")
-            ->where("role_has_permissions.role_id",$id)
+        $permissionRoles = Role::join('sa_role_has_sa_permissions', 'sa_roles.id', '=', 'sa_role_has_sa_permissions.sa_role_id')
+            ->where('sa_role_has_sa_permissions.sa_permission_id', $id)
             ->get();
 
-        return view('permissions.show',compact('permission','rolePermissions'));
+        return view('permissions.show', compact('permission', 'permissionRoles'));
     }
 
     /**
@@ -99,12 +104,11 @@ class SaPermissionController extends BaseController
     public function edit($id): View
     {
         $permission = Permission::find($id);
-        $permission = Permission::get();
-        $rolePermissions = DB::table("role_has_permissions")->where("role_has_permissions.role_id",$id)
-            ->pluck('role_has_permissions.permission_id','role_has_permissions.permission_id')
+        $roles = Role::get();
+        $permissionRoles = DB::table("sa_role_has_sa_permissions")->where("sa_role_has_sa_permissions.sa_permission_id", $id)
+            ->pluck('sa_role_has_sa_permissions.sa_role_id', 'sa_role_has_sa_permissions.sa_role_id')
             ->all();
-
-        return view('permissions.edit',compact('permission','permission','rolePermissions'));
+        return view('permissions.edit', compact('permission', 'roles', 'permissionRoles'));
     }
 
     /**
@@ -118,22 +122,24 @@ class SaPermissionController extends BaseController
     {
         $this->validate($request, [
             'name' => 'required',
-            'permission' => 'required',
+            'role' => 'required',
         ]);
 
         $permission = Permission::find($id);
         $permission->name = $request->input('name');
         $permission->save();
 
-        $permissionsID = array_map(
-            function($value) { return (int)$value; },
-            $request->input('permission')
+        $rolesId = array_map(
+            function ($value) {
+                return (int)$value;
+            },
+            $request->input('role')
         );
 
-        $permission->syncPermissions($permissionsID);
+        $permission->syncRoles($rolesId);
 
         return redirect()->route('permissions.index')
-                        ->with('success','Role updated successfully');
+            ->with('success', 'Role updated successfully');
     }
     /**
      * Remove the specified resource from storage.
@@ -143,8 +149,8 @@ class SaPermissionController extends BaseController
      */
     public function destroy($id): RedirectResponse
     {
-        DB::table("permissions")->where('id',$id)->delete();
+        DB::table("sa_permissions")->where('id', $id)->delete();
         return redirect()->route('permissions.index')
-                        ->with('success','Permission deleted successfully');
+            ->with('success', 'Permission deleted successfully');
     }
 }
