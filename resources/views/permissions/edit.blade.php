@@ -39,7 +39,7 @@
                 <strong>Roles:</strong>
                 <br/>
                 @foreach($roles as $value)
-                    <label><input type="checkbox" name="role[{{$value->id}}]" value="{{$value->id}}" class="name" {{ in_array($value->id, $permissionRoles) ? 'checked' : ''}}>
+                    <label><input type="checkbox" name="roles[{{$value->id}}]" value="{{$value->id}}" class="name" {{ in_array($value->id, $permissionRoles) ? 'checked' : ''}}>
                     {{ $value->name }}</label>
                 <br/>
                 @endforeach

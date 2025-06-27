@@ -63,15 +63,18 @@ class SaRoleController extends BaseController
     {
         $request->validate([
             'name' => 'required|unique:sa_roles,name',
-            'permission' => 'required',
+            'permissions' => 'nullable',
         ]);
 
-        $permissionsID = array_map(
-            function ($value) {
-                return (int)$value;
-            },
-            $request->input('permission')
-        );
+        $permissionsID = [];
+        if (!empty($request->input('permissions'))) {
+            $permissionsID = array_map(
+                function ($value) {
+                    return (int)$value;
+                },
+                $request->input('permissions')
+            );
+        }
 
         $role = Role::create(['name' => $request->input('name')]);
         $role->syncPermissions($permissionsID);
@@ -122,19 +125,22 @@ class SaRoleController extends BaseController
     {
         $request->validate([
             'name' => 'required',
-            'permission' => 'required',
+            'permissions' => 'nullable',
         ]);
 
         $role = Role::find($id);
         $role->name = $request->input('name');
         $role->save();
 
-        $permissionsID = array_map(
-            function ($value) {
-                return (int)$value;
-            },
-            $request->input('permission')
-        );
+        $permissionsID = [];
+        if (!empty($request->input('permissions'))) {
+            $permissionsID = array_map(
+                function ($value) {
+                    return (int)$value;
+                },
+                $request->input('permissions')
+            );
+        }
 
         $role->syncPermissions($permissionsID);
 
